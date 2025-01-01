@@ -22,6 +22,10 @@ io.on('connection', (socket) => {
 	socket.on('chat message', (message) => {
 		socket.broadcast.emit('chat message', { message: message, user: nickname });
 	});
+
+	socket.on('isTyping', (nickname) => {
+		socket.broadcast.emit('isTyping', nickname + ' is typing...');
+	});
 });
 
 server.listen(3000, () => {

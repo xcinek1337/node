@@ -151,7 +151,9 @@
 
 		<script src="/socket.io/socket.io.js"></script>
 		<script>
+			let typingTimeout;
 			let nickname;
+
 			document.addEventListener('DOMContentLoaded', function () {
 				const popup = document.getElementById('popup-overlay');
 				const nicknameInput = document.getElementById('popup-input');
@@ -180,6 +182,9 @@
 						input.value = '';
 					}
 				});
+				form.addEventListener('keydown', (e) => {
+					socket.emit('isTyping', nickname);
+				});
 
 				socket.on('onWelcome', (message) => {
 					sendMessage(message);
@@ -191,19 +196,39 @@
 
 				socket.on('chat message', (message) => {
 					sendMessage(message);
+					const existingTypingMessage = document.querySelector('.isTyping');
+					existingTypingMessage.remove();
 				});
-
-				function sendMessage(msg) {
-					var item = document.createElement('li');
-					if (typeof msg == 'object') {
-						const { user, message } = msg;
-						item.textContent = `${user}: ${message}`;
-					} else {
-						item.textContent = msg;
-					}
-					messages.appendChild(item);
-					window.scrollTo(0, document.body.scrollHeight);
+				socket.on('isTyping', (message) => {
+					isTyping(message);
+				});
+			}
+			function sendMessage(msg) {
+				var item = document.createElement('li');
+				if (typeof msg == 'object') {
+					const { user, message } = msg;
+					item.textContent = `${user}: ${message}`;
+				} else {
+					item.textContent = msg;
 				}
+				messages.appendChild(item);
+				window.scrollTo(0, document.body.scrollHeight);
+			}
+			function isTyping(message) {
+				var messages = document.getElementById('messages');
+				var item = document.createElement('li');
+				item.classList.add('isTyping');
+				item.textContent = message;
+				const existingTypingMessage = document.querySelector('.isTyping');
+				if (existingTypingMessage) {
+					existingTypingMessage.remove();
+				}
+				messages.appendChild(item);
+
+				clearTimeout(typingTimeout);
+				typingTimeout = setTimeout(() => {
+					item.remove();
+				}, 3000);
 			}
 		</script>
 	</body>
