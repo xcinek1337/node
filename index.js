@@ -20,7 +20,7 @@ io.on('connection', (socket) => {
 	});
 
 	socket.on('chat message', (message) => {
-		io.emit('chat message', { message: message, user: nickname });
+		socket.broadcast.emit('chat message', { message: message, user: nickname });
 	});
 });
 

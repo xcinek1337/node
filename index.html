@@ -176,6 +176,7 @@
 					e.preventDefault();
 					if (input.value) {
 						socket.emit('chat message', input.value);
+						sendMessage({ message: input.value, user: nickname });
 						input.value = '';
 					}
 				});
