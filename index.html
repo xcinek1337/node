@@ -45,7 +45,21 @@
 				color: #fff;
 			}
 
+			#screen {
+				display: flex;
+			}
+
+			#online {
+				width: 15%;
+				height: 200px;
+				list-style-type: none;
+				margin: 0;
+				padding: 0;
+				border: 2px solid black;
+			}
+
 			#messages {
+				width: 85%;
 				list-style-type: none;
 				margin: 0;
 				padding: 0;
@@ -138,7 +152,12 @@
 			</div>
 		</div>
 
-		<ul id="messages"></ul>
+		<div id="screen">
+			<ul id="messages"></ul>
+			<ul id="online">
+				<p style="text-align: center; font-size: 15px">online users:</p>
+			</ul>
+		</div>
 		<form
 			id="form"
 			action=""
@@ -163,6 +182,7 @@
 				okButton.addEventListener('click', function () {
 					nickname = nicknameInput.value;
 					popup.classList.remove('show');
+					window.scrollTo(0, document.body.scrollTop);
 					main();
 				});
 			});
@@ -188,6 +208,13 @@
 
 				socket.on('onWelcome', (message) => {
 					sendMessage(message);
+				});
+
+				socket.on('addOnline', (online) => {
+					renderOnlineUsers(online);
+				});
+				socket.on('removeOnline', (online) => {
+					renderOnlineUsers(online);
 				});
 
 				socket.on('onDisconnect', (message) => {
@@ -229,6 +256,26 @@
 				typingTimeout = setTimeout(() => {
 					item.remove();
 				}, 3000);
+			}
+
+			function renderOnlineUsers(onlineUsers) {
+				var online = document.getElementById('online');
+				
+				while (online.lastChild) {
+					if (online.lastChild.nodeName === 'LI') {
+						online.lastChild.remove();
+					} else {
+						break;
+					}
+				}
+				const items = onlineUsers.map((user) => {
+					const item = document.createElement('li');
+					item.textContent = user;
+					return item;
+				});
+				items.forEach((user) => {
+					online.append(user);
+				});
 			}
 		</script>
 	</body>
