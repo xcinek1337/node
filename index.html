@@ -4,6 +4,7 @@
 		<title>Socket.IO chat</title>
 		<style>
 			body {
+				height: 100vh;
 				margin: 0;
 				padding-bottom: 3rem;
 				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -21,6 +22,7 @@
 				box-sizing: border-box;
 				backdrop-filter: blur(10px);
 			}
+
 			#input {
 				border: none;
 				padding: 0 1rem;
@@ -28,9 +30,11 @@
 				border-radius: 2rem;
 				margin: 0.25rem;
 			}
+
 			#input:focus {
 				outline: none;
 			}
+
 			#form > button {
 				background: #333;
 				border: none;
@@ -46,15 +50,94 @@
 				margin: 0;
 				padding: 0;
 			}
+
 			#messages > li {
 				padding: 0.5rem 1rem;
 			}
+
 			#messages > li:nth-child(odd) {
 				background: #efefef;
 			}
+
+			#popup-overlay {
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background-color: rgba(0, 0, 0, 0.5);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				visibility: hidden;
+				opacity: 0;
+				transition: visibility 0s, opacity 0.3s;
+				z-index: 1;
+			}
+
+			/* Kontener popup */
+			#popup-container {
+				background-color: white;
+				padding: 20px;
+				border-radius: 10px;
+				box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+				width: 300px;
+				text-align: center;
+			}
+
+			#input-container {
+				position: relative;
+			}
+
+			#popup-input {
+				width: 78%;
+				padding: 10px 50px 10px 10px;
+				border: 2px solid #ccc;
+				border-radius: 5px;
+				font-size: 16px;
+			}
+
+			#popup-ok {
+				position: absolute;
+				top: 50%;
+				right: 15px;
+				transform: translateY(-50%);
+				border: none;
+				background-color: #fff;
+				color: black;
+				padding: 3px 6px;
+				border: 2px solid gray;
+				border-radius: 12px;
+				cursor: pointer;
+				font-size: 14px;
+			}
+
+			#popup-ok:hover {
+				background-color: gray;
+			}
+
+			/* Pokazanie popup */
+			#popup-overlay.show {
+				visibility: visible;
+				opacity: 1;
+			}
 		</style>
 	</head>
+
 	<body>
+		<div id="popup-overlay">
+			<div id="popup-container">
+				<div id="input-container">
+					<input
+						id="popup-input"
+						type="text"
+						placeholder="Type your nickname"
+					/>
+					<button id="popup-ok">Okey</button>
+				</div>
+			</div>
+		</div>
+
 		<ul id="messages"></ul>
 		<form
 			id="form"
@@ -65,44 +148,61 @@
 				autocomplete="off"
 			/><button>Send</button>
 		</form>
+
 		<script src="/socket.io/socket.io.js"></script>
 		<script>
-			var socket = io();
+			let nickname;
+			document.addEventListener('DOMContentLoaded', function () {
+				const popup = document.getElementById('popup-overlay');
+				const nicknameInput = document.getElementById('popup-input');
+				popup.classList.add('show');
 
-			var messages = document.getElementById('messages');
-			var form = document.getElementById('form');
-			var input = document.getElementById('input');
+				const okButton = document.getElementById('popup-ok');
+				okButton.addEventListener('click', function () {
+					nickname = nicknameInput.value;
+					popup.classList.remove('show');
+					main();
+				});
+			});
 
-			form.addEventListener('submit', (e) => {
-				e.preventDefault();
-				if (input.value) {
-					socket.emit('chat message', input.value);
-					input.value = '';
+			function main() {
+				var socket = io({ query: { nickname: nickname } });
+
+				var messages = document.getElementById('messages');
+				var form = document.getElementById('form');
+				var input = document.getElementById('input');
+
+				form.addEventListener('submit', (e) => {
+					e.preventDefault();
+					if (input.value) {
+						socket.emit('chat message', input.value);
+						input.value = '';
+					}
+				});
+
+				socket.on('onWelcome', (message) => {
+					sendMessage(message);
+				});
+
+				socket.on('onDisconnect', (message) => {
+					sendMessage(message);
+				});
+
+				socket.on('chat message', (message) => {
+					sendMessage(message);
+				});
+
+				function sendMessage(msg) {
+					var item = document.createElement('li');
+					if (typeof msg == 'object') {
+						const { user, message } = msg;
+						item.textContent = `${user}: ${message}`;
+					} else {
+						item.textContent = msg;
+					}
+					messages.appendChild(item);
+					window.scrollTo(0, document.body.scrollHeight);
 				}
-			});
-
-			socket.on('onWelcome', (message) => {
-				sendMessage(message);
-			});
-
-			socket.on('onDisconnect', (message) => {
-				sendMessage(message);
-			});
-
-			socket.on('chat message', (message) => {
-				sendMessage(message);
-			});
-
-			function sendMessage(msg) {
-				var item = document.createElement('li');
-				if (typeof msg == 'object') {
-					const { user, message } = msg;
-					item.textContent = `${user}: ${message}`;
-				} else {
-					item.textContent = msg;
-				}
-				messages.appendChild(item);
-				window.scrollTo(0, document.body.scrollHeight);
 			}
 		</script>
 	</body>

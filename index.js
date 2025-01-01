@@ -9,19 +9,18 @@ const io = new Server(server);
 app.get('/', (req, res) => {
 	res.sendFile(__dirname + '/index.html');
 });
-let guestNumber = 0;
+
 io.on('connection', (socket) => {
-	socket.data.username = 'Guest' + guestNumber++;
-	io.emit('onWelcome', socket.data.username + ' join to the chat');
+	const nickname = socket.handshake.query.nickname;
+
+	io.emit('onWelcome', nickname + ' join to the chat');
 
 	socket.on('disconnect', () => {
-		io.emit('onDisconnect', socket.data.username + ' left the chat');
+		io.emit('onDisconnect', nickname + ' left the chat');
 	});
 
 	socket.on('chat message', (message) => {
-		console.log(socket.data.username);
-
-		io.emit('chat message', { message: message, user: socket.data.username });
+		io.emit('chat message', { message: message, user: nickname });
 	});
 });
 
