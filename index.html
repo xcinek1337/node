@@ -196,6 +196,16 @@
 
 				form.addEventListener('submit', (e) => {
 					e.preventDefault();
+
+					if (input.value.startsWith('/msg ')) {
+						const recipient = input.value.split(' ')[1];
+						const message = input.value.split(' ').slice(2).join(' ');
+
+						socket.emit('private message', { message: message, recipient: recipient });
+						sendPrivateMessage({ message: message, recipient: recipient }, 'sender');
+						input.value = '';
+						return;
+					}
 					if (input.value) {
 						socket.emit('chat message', input.value);
 						sendMessage({ message: input.value, user: nickname });
@@ -203,7 +213,15 @@
 					}
 				});
 				form.addEventListener('keydown', (e) => {
-					socket.emit('isTyping', nickname);
+					const inputValue = input.value.trim(); // Usuń zbędne spacje
+					const isPrivateMessage = /^\/msg\s+\S+/.test(inputValue); // Sprawdź, czy zaczyna się od "/msg"
+
+					if (!isPrivateMessage && inputValue !== '') {
+						// Emituj "isTyping" tylko dla wiadomości na czacie głównym
+						socket.emit('isTyping', nickname);
+					} else if (isPrivateMessage) {
+						console.log('Pisanie prywatnej wiadomości');
+					}
 				});
 
 				socket.on('onWelcome', (message) => {
@@ -226,10 +244,20 @@
 					const existingTypingMessage = document.querySelector('.isTyping');
 					existingTypingMessage.remove();
 				});
+
+				socket.on('private message', (message) => {
+					sendPrivateMessage(message, 'recipent');
+				});
+
+				socket.on('userNotFound', (recipient) => {
+					userNotFound(recipient);
+				});
+
 				socket.on('isTyping', (message) => {
 					isTyping(message);
 				});
 			}
+
 			function sendMessage(msg) {
 				var item = document.createElement('li');
 				if (typeof msg == 'object') {
@@ -239,6 +267,30 @@
 					item.textContent = msg;
 				}
 				messages.appendChild(item);
+				window.scrollTo(0, document.body.scrollHeight);
+			}
+
+			function userNotFound(recipent) {
+				var item = document.createElement('li');
+				item.textContent = `${recipent} is not online`;
+				item.style.backgroundColor = '#e15656';
+				messages.appendChild(item);
+				window.scrollTo(0, document.body.scrollHeight);
+			}
+
+			function sendPrivateMessage(msgRecipient, caller) {
+				const { message, recipient, sender } = msgRecipient;
+				if (caller === 'sender') {
+					var item = document.createElement('li');
+					item.style.backgroundColor = '#8c8cd1';
+					item.innerHTML = `Private message to <strong>${recipient}</strong>: ${message}`;
+					messages.appendChild(item);
+				} else {
+					var item = document.createElement('li');
+					item.style.backgroundColor = '#8c8cd1';
+					item.innerHTML = `Private message from <strong>${sender}</strong>: ${message}`;
+					messages.appendChild(item);
+				}
 				window.scrollTo(0, document.body.scrollHeight);
 			}
 			function isTyping(message) {
@@ -260,7 +312,7 @@
 
 			function renderOnlineUsers(onlineUsers) {
 				var online = document.getElementById('online');
-				
+
 				while (online.lastChild) {
 					if (online.lastChild.nodeName === 'LI') {
 						online.lastChild.remove();
