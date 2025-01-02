@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Socket.IO chat</title>
+		<style>
+			body {
+				height: 100vh;
+				margin: 0;
+				padding-bottom: 3rem;
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+			}
+
+			#form {
+				background: rgba(0, 0, 0, 0.15);
+				padding: 0.25rem;
+				position: fixed;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				display: flex;
+				height: 3rem;
+				box-sizing: border-box;
+				backdrop-filter: blur(10px);
+			}
+
+			#input {
+				border: none;
+				padding: 0 1rem;
+				flex-grow: 1;
+				border-radius: 2rem;
+				margin: 0.25rem;
+			}
+
+			#input:focus {
+				outline: none;
+			}
+
+			#form > button {
+				background: #333;
+				border: none;
+				padding: 0 1rem;
+				margin: 0.25rem;
+				border-radius: 3px;
+				outline: none;
+				color: #fff;
+			}
+
+			#screen {
+				display: flex;
+			}
+
+			#online {
+				width: 15%;
+				height: 200px;
+				list-style-type: none;
+				margin: 0;
+				padding: 0;
+				border: 2px solid black;
+			}
+
+			#messages {
+				width: 85%;
+				list-style-type: none;
+				margin: 0;
+				padding: 0;
+			}
+
+			#messages > li {
+				padding: 0.5rem 1rem;
+			}
+
+			#messages > li:nth-child(odd) {
+				background: #efefef;
+			}
+
+			#popup-overlay {
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background-color: rgba(0, 0, 0, 0.5);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				visibility: hidden;
+				opacity: 0;
+				transition: visibility 0s, opacity 0.3s;
+				z-index: 1;
+			}
+
+			/* Kontener popup */
+			#popup-container {
+				background-color: white;
+				padding: 20px;
+				border-radius: 10px;
+				box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+				width: 300px;
+				text-align: center;
+			}
+
+			#input-container {
+				position: relative;
+			}
+
+			#popup-input {
+				width: 78%;
+				padding: 10px 50px 10px 10px;
+				border: 2px solid #ccc;
+				border-radius: 5px;
+				font-size: 16px;
+			}
+
+			#popup-ok {
+				position: absolute;
+				top: 50%;
+				right: 15px;
+				transform: translateY(-50%);
+				border: none;
+				background-color: #fff;
+				color: black;
+				padding: 3px 6px;
+				border: 2px solid gray;
+				border-radius: 12px;
+				cursor: pointer;
+				font-size: 14px;
+			}
+
+			#popup-ok:hover {
+				background-color: gray;
+			}
+
+			/* Pokazanie popup */
+			#popup-overlay.show {
+				visibility: visible;
+				opacity: 1;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="popup-overlay">
+			<div id="popup-container">
+				<div id="input-container">
+					<input
+						id="popup-input"
+						type="text"
+						placeholder="Type your nickname"
+					/>
+					<button id="popup-ok">Okey</button>
+				</div>
+			</div>
+		</div>
+
+		<div id="screen">
+			<ul id="messages"></ul>
+			<ul id="online">
+				<p style="text-align: center; font-size: 15px">online users:</p>
+			</ul>
+		</div>
+		<form
+			id="form"
+			action=""
+		>
+			<input
+				id="input"
+				autocomplete="off"
+			/><button>Send</button>
+		</form>
+
+		<script src="/socket.io/socket.io.js"></script>
+		<script>
+			let typingTimeout;
+			let nickname;
+
+			document.addEventListener('DOMContentLoaded', function () {
+				const popup = document.getElementById('popup-overlay');
+				const nicknameInput = document.getElementById('popup-input');
+				popup.classList.add('show');
+
+				const okButton = document.getElementById('popup-ok');
+				okButton.addEventListener('click', function () {
+					nickname = nicknameInput.value;
+					popup.classList.remove('show');
+					window.scrollTo(0, document.body.scrollTop);
+					main();
+				});
+			});
+
+			function main() {
+				var socket = io({ query: { nickname: nickname } });
+
+				var messages = document.getElementById('messages');
+				var form = document.getElementById('form');
+				var input = document.getElementById('input');
+
+				form.addEventListener('submit', (e) => {
+					e.preventDefault();
+
+					if (input.value.startsWith('/msg ')) {
+						const recipient = input.value.split(' ')[1];
+						const message = input.value.split(' ').slice(2).join(' ');
+
+						socket.emit('private message', { message: message, recipient: recipient });
+						sendPrivateMessage({ message: message, recipient: recipient }, 'sender');
+						input.value = '';
+						return;
+					}
+					if (input.value) {
+						socket.emit('chat message', input.value);
+						sendMessage({ message: input.value, user: nickname });
+						input.value = '';
+					}
+				});
+				form.addEventListener('keydown', (e) => {
+					const inputValue = input.value.trim(); // Usuń zbędne spacje
+					const isPrivateMessage = /^\/msg\s+\S+/.test(inputValue); // Sprawdź, czy zaczyna się od "/msg"
+
+					if (!isPrivateMessage && inputValue !== '') {
+						// Emituj "isTyping" tylko dla wiadomości na czacie głównym
+						socket.emit('isTyping', nickname);
+					} else if (isPrivateMessage) {
+						console.log('Pisanie prywatnej wiadomości');
+					}
+				});
+
+				socket.on('onWelcome', (message) => {
+					sendMessage(message);
+				});
+
+				socket.on('addOnline', (online) => {
+					renderOnlineUsers(online);
+				});
+				socket.on('removeOnline', (online) => {
+					renderOnlineUsers(online);
+				});
+
+				socket.on('onDisconnect', (message) => {
+					sendMessage(message);
+				});
+
+				socket.on('chat message', (message) => {
+					sendMessage(message);
+					const existingTypingMessage = document.querySelector('.isTyping');
+					existingTypingMessage.remove();
+				});
+
+				socket.on('private message', (message) => {
+					sendPrivateMessage(message, 'recipent');
+				});
+
+				socket.on('userNotFound', (recipient) => {
+					userNotFound(recipient);
+				});
+
+				socket.on('isTyping', (message) => {
+					isTyping(message);
+				});
+			}
+
+			function sendMessage(msg) {
+				var item = document.createElement('li');
+				if (typeof msg == 'object') {
+					const { user, message } = msg;
+					item.textContent = `${user}: ${message}`;
+				} else {
+					item.textContent = msg;
+				}
+				messages.appendChild(item);
+				window.scrollTo(0, document.body.scrollHeight);
+			}
+
+			function userNotFound(recipent) {
+				var item = document.createElement('li');
+				item.textContent = `${recipent} is not online`;
+				item.style.backgroundColor = '#e15656';
+				messages.appendChild(item);
+				window.scrollTo(0, document.body.scrollHeight);
+			}
+
+			function sendPrivateMessage(msgRecipient, caller) {
+				const { message, recipient, sender } = msgRecipient;
+				if (caller === 'sender') {
+					var item = document.createElement('li');
+					item.style.backgroundColor = '#8c8cd1';
+					item.innerHTML = `Private message to <strong>${recipient}</strong>: ${message}`;
+					messages.appendChild(item);
+				} else {
+					var item = document.createElement('li');
+					item.style.backgroundColor = '#8c8cd1';
+					item.innerHTML = `Private message from <strong>${sender}</strong>: ${message}`;
+					messages.appendChild(item);
+				}
+				window.scrollTo(0, document.body.scrollHeight);
+			}
+			function isTyping(message) {
+				var messages = document.getElementById('messages');
+				var item = document.createElement('li');
+				item.classList.add('isTyping');
+				item.textContent = message;
+				const existingTypingMessage = document.querySelector('.isTyping');
+				if (existingTypingMessage) {
+					existingTypingMessage.remove();
+				}
+				messages.appendChild(item);
+
+				clearTimeout(typingTimeout);
+				typingTimeout = setTimeout(() => {
+					item.remove();
+				}, 3000);
+			}
+
+			function renderOnlineUsers(onlineUsers) {
+				var online = document.getElementById('online');
+
+				while (online.lastChild) {
+					if (online.lastChild.nodeName === 'LI') {
+						online.lastChild.remove();
+					} else {
+						break;
+					}
+				}
+				const items = onlineUsers.map((user) => {
+					const item = document.createElement('li');
+					item.textContent = user;
+					return item;
+				});
+				items.forEach((user) => {
+					online.append(user);
+				});
+			}
+		</script>
+	</body>
+</html>
