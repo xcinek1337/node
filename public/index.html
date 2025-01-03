@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Socket.IO chat</title>
+		<link
+			rel="stylesheet"
+			href="./style.css"
+		/>
+	</head>
+
+	<body>
+		<div id="popup-overlay">
+			<div id="popup-container">
+				<div id="input-container">
+					<input
+						id="popup-input"
+						type="text"
+						placeholder="Type your nickname"
+					/>
+					<button id="popup-ok">Okey</button>
+				</div>
+			</div>
+		</div>
+
+		<div id="screen">
+			<ul id="messages"></ul>
+			<ul id="online">
+				<p style="text-align: center; font-size: 15px">online users:</p>
+			</ul>
+		</div>
+		<form
+			id="form"
+			action=""
+		>
+			<input
+				id="input"
+				autocomplete="off"
+			/><button>Send</button>
+		</form>
+
+		<script src="./index.js"></script>
+		<!-- <script src="/socket.io/socket.io.js"></script> -->
+	</body>
+</html>
